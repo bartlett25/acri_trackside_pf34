@@ -1,0 +1,127 @@
+<launch>
+<!--Author: Nathan Bartlett 11/02/2021-->
+<!--Initialise reference frames-->
+
+<arg name="world"               default="world_ned"/>           
+<arg name="map"                 default="map"/>                 
+<arg name="odom"                default="odom"/>
+<arg name="base_link"           default="base_link"/>
+<arg name="imu_link"            default="imu"/>
+<arg name="camera_front"        default="camera_front"/> 
+<arg name="camera_right"        default="camera_right"/> 
+<arg name="camera_left"         default="camera_left"/> 
+<arg name="camera_back"         default="camera_back"/> 
+
+<!--Static transforms of camera-->
+<!--Note: corresponding to mounting on vehicle with power supply at BACK-->
+
+<node pkg="tf2_ros" type="static_transform_publisher" name="$(arg base_link)_to_$(arg camera_front)" 
+    args="1.02 0 0.05 0 0.2497 0 $(arg base_link) $(arg camera_front)_link"/>
+
+<node pkg="tf2_ros" type="static_transform_publisher" name="$(arg base_link)_to_$(arg camera_right)" 
+    args="-0.0074 -0.5655 0.0724 -1.5437 0.2392 0.0063 $(arg base_link) $(arg camera_right)_link"/>
+
+<node pkg="tf2_ros" type="static_transform_publisher" name="$(arg base_link)_to_$(arg camera_left)" 
+    args="-0.0362 0.4984 0.0661 1.5743 0.2487 0.0119 $(arg base_link) $(arg camera_left)_link"/> 
+
+<node pkg="tf2_ros" type="static_transform_publisher" name="$(arg base_link)_to_$(arg camera_back)" 
+    args="-1.0477 -0.0569 0.0870 3.1389 0.2024 0.0149 $(arg base_link) $(arg camera_back)_link"/>
+
+<!--Visualiser and RTABMAP configurations-->
+
+<arg name="sim_time"                default="true"/>
+<arg name="rviz"                    default="true"/>
+<arg name="rviz_cfg"                default="$(find acri_localisation)/rviz/multi_camera_reader.rviz"/> 
+<arg name="rtabmap_args"            default="-d $(find acri_localisation)/cfg/multi_camera_rtabmap.ini "/>
+<arg name="odom_args"               default="--publish_tf true"/>
+<arg name="launch_prefix"           default="bash -c 'sleep 0.1; $0 $@'"/>
+<arg name="wait_for_time"           default="0.5"/>
+<arg name="bagfile"                 default="$(find acri_localisation)/log/multi_camera_acri_2021-03-31T08:21:30.730548.bag"/>
+
+<!--Rail detection and classification configurations-->
+
+<arg name="resolution"              default="80"/>              <!--resolution of line detection image-->
+<arg name="radius"                  default="3.5"/>             <!--radius about base_link for voxels to be used in image. Image width = (2*fov*resolution)-->
+<arg name="height"                  default="0.0"/>             <!--max height above base_link for voxels to be used in image-->
+<arg name="floor"                   default="1.0"/>             <!--min floor below base_link for voxels to be used in image-->
+<arg name="min_rail_height"         default="0.06"/>            <!--min height difference used for rail detection-->
+<arg name="max_rail_height"         default="0.12"/>            <!--max height difference used for rail detection-->
+<arg name="morph_scale"             default="2"/>               <!--scale of morphological operation (bigger -> more holes filled)-->
+<arg name="min_line_length"         default="60.0"/>            <!--min line length for Hough transform (in pixels). In metres = pixels/resolution-->
+<arg name="max_line_gap"            default="40.0"/>            <!--max line gap for Hough transform (in pixels). In metres = pixels/resolution-->
+<arg name="angle"                   default="10.0"/>            <!--max rail incline-->
+<arg name="accumulator"             default="50"/>              <!--min number of points required by Hough transform before considered a line-->
+
+<arg name="class_max_theta"         default="0.0575"/>          <!--max angle difference between line segments to be associated with same rail line-->
+<arg name="class_max_dist"          default="0.3"/>             <!--max distance between line segments to be associated with same rail line-->
+<arg name="pair_max_theta"          default="0.0575"/>          <!--max angle difference between two rail lines to be considered a pair-->
+<arg name="pair_max_width"          default="0.3"/>             <!--max difference away from expected rail width between two rail lines to be considered a pair-->
+<arg name="pair_min_length"         default="1.0"/>             <!--min length of a rail lines to be considered in pairing procedure-->
+<arg name="pair_max_length_diff"    default="10"/>              <!--max length difference between two rail lines to be considered a pair-->
+<arg name="pair_width_var"          default="0.3"/>             <!--width variance between a rail pair-->
+<arg name="pair_length_var"         default="4.0"/>             <!--length variance between a rail pair (be more acceting of length differences than width)-->
+<arg name="rail_width"              default="1.067"/>           <!--expected width between a rail pairing-->
+<arg name="max_rail_number"         default="200"/>             <!--maximum number of rail lines kept in memory-->
+
+<!--Run nodes with simulation time-->
+
+<param name="use_sim_time" type="bool" value="$(arg sim_time)"/>
+<node pkg="rosbag"  type="play" name="player" output="screen" args="$(arg bagfile) --clock"/><node if="$(arg rviz)" pkg="rviz" type="rviz" name="rviz" launch-prefix="$(arg launch_prefix)" args="-d $(arg rviz_cfg)"/>
+
+<!--Rail detection and classification-->
+<group ns="rail">
+
+    <!--Line segment detection-->
+
+    <node pkg="acri_localisation" type="line_detection" name="line_detection" respawn="true" output="screen" launch-prefix="$(arg launch_prefix)">
+        <param name="resolution"               type="double" value="$(arg resolution)"/>
+        <param name="radius"                   type="double" value="$(arg radius)"/>   
+        <param name="height"                   type="double" value="$(arg height)"/>
+        <param name="floor"                    type="double" value="$(arg floor)"/>
+        <param name="min_rail_height"          type="double" value="$(arg min_rail_height)"/>
+        <param name="max_rail_height"          type="double" value="$(arg max_rail_height)"/>
+        <param name="morph_scale"              type="int"    value="$(arg morph_scale)"/> 
+        <param name="min_line_length"          type="double" value="$(arg min_line_length)"/> 
+        <param name="max_line_gap"             type="double" value="$(arg max_line_gap)"/> 
+        <param name="angle"                    type="double" value="$(arg angle)"/>
+        <param name="frame_id"                 type="string" value="$(arg map)"/>
+        <param name="child_frame_id"           type="string" value="$(arg base_link)"/>
+        <remap from="input"                    to="/rtabmap/octomap_occupied_space"/>
+        <remap from="out_lines"                to="line_segments"/>
+    </node>
+
+    <!--Rail classification-->
+
+    <node pkg="acri_localisation" type="rail_class" name="rail_class" respawn="true" output="screen" launch-prefix="$(arg launch_prefix)">
+        <param name="class_max_dist"           type="double" value="$(arg class_max_dist)"/>
+        <param name="class_max_theta"          type="double" value="$(arg class_max_theta)"/>   
+        <param name="pair_min_length"          type="double" value="$(arg pair_min_length)"/>
+        <param name="pair_max_theta"           type="double" value="$(arg pair_max_theta)"/> 
+        <param name="pair_width_var"           type="double" value="$(arg pair_width_var)"/>  
+        <param name="pair_length_var"          type="double" value="$(arg pair_length_var)"/>
+        <param name="pair_max_width"           type="double" value="$(arg pair_max_width)"/> 
+        <param name="pair_max_length_diff"     type="double" value="$(arg pair_max_length_diff)"/>            
+        <param name="rail_width"               type="double" value="$(arg rail_width)"/> 
+        <param name="range"                    type="double" value="$(arg radius)"/> 
+        <param name="max_rail_number"          type="double" value="$(arg max_rail_number)"/>
+        <param name="frame_id"                 type="string" value="$(arg map)"/>
+        <param name="child_frame_id"           type="string" value="$(arg base_link)"/>
+        <remap from="input"                    to="line_segments"/>
+        <remap from="out_lines"                to="rail_lines"/>  
+        <remap from="out_pairs"                to="rail_pairs"/> 
+        <remap from="out_closest"              to="rail_closest"/>  
+    </node>
+
+    <!--Rail visualisation-->
+
+    <node pkg="acri_localisation" type="rail_vis" name="rail_vis" respawn="true" output="screen" launch-prefix="$(arg launch_prefix)">
+        <param name="display_mid_line"         type="bool" value="true"/>
+        <remap from="in_lines"                 to="rail_lines"/>
+        <remap from="in_pairs"                 to="rail_pairs"/>
+        <remap from="in_closest"               to="rail_closest"/>
+        <remap from="out_lines"                to="vis_lines"/>
+        <remap from="out_pairs"                to="vis_pairs"/>
+        <remap from="out_closest"              to="vis_closest"/>
+    </node>
+</group>
+</launch>

@@ -1,0 +1,45 @@
+To create ROS headers for the STM32 for chatter -
+	cd ~/Documents/stm32/chatter
+	rosrun rosserial_stm32 make_libraries.py .
+
+Copy chatter folder
+
+In Windows machine: (using Nucleo F446RE)
+	Load chatter_f4.ioc project using STM32CubeMX
+	In Project Manager - Code Generator
+		Select STM32CubeIDE as Toolchain / IDE
+	Generate code
+	Open Project
+	Move duration.cpp and time.cpp from Inc to Src directory
+	In STM32Hardware.h
+		Change #define STM32F3xx to #define STM32F4xx
+	Right click on chatter_f4 project
+		Go to Prooperties
+		C/C++ General - File Types
+			Click Use project settings
+			Click New...
+			Pattern: *.h
+			Type: C++ Header File
+		Apply and Close
+	Right click on chatter_f4 project
+		Convert to C++ (ROS libraries are C++)
+	Rename main.c to main.cpp
+	In main.cpp
+		#include "mainpp.h"
+	In mainpp.cpp
+		In void loop()
+		Insert following code after HAL_GPIO_TogglePin(...);
+		
+		if(!.nh.connected()){
+			nh.initNode();
+		}
+	Build project
+	Program on connected STM32
+
+Back on NUC:
+	Conenct STM32
+	dmesg | grep tty (to see address of STM32)
+	
+
+		
+	

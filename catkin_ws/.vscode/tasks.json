@@ -1,0 +1,34 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+			// Building catkin workspace (Ctrl+Shift+B)
+            "label": "ROS: catkin_make",
+            "type": "shell",
+            "command": "catkin_make",
+            "args": [
+                "-j4",
+                "-DRTABMAP_SYNC_MULTI_RGBD=ON",
+                "-DCMAKE_BUILD_TYPE=Debug",//Release
+                "-DCMAKE_EXPORT_COMPILE_COMMANDS=1",
+                "-DCMAKE_CXX_STANDARD=14"
+            ],
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+			// Launch detect_rail.launch (Ctrl+Shift+3)
+            "label": "ROS: detect_rail launch",
+            "type": "shell",
+            "command": "roslaunch detect_rail detect_rail.launch",
+            "problemMatcher": [],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            }
+        }
+    ]
+}

@@ -1,0 +1,327 @@
+<launch>
+<!--Author: Nathan Bartlett 01/04/2021-->
+<!--Reference frames-->
+
+<arg name="world"                   default="world_ned"/>       <!--world reference frame (for GPS)-->        
+<arg name="map"                     default="map"/>             <!--map reference frame-->       
+<arg name="odom"                    default="odom"/>            <!--odometry reference frame--> 
+<arg name="base_link"               default="base_link"/>       <!--vehicle centre reference frame-->
+<arg name="imu_link"                default="imu"/>             <!--imu reference frame-->
+<arg name="camera_front"            default="camera_front"/>    <!--front camera reference frame-->
+<arg name="camera_right"            default="camera_right"/>    <!--right camera reference frame-->
+<arg name="camera_left"             default="camera_left"/>     <!--left camera reference frame-->
+<arg name="camera_back"             default="camera_back"/>     <!--back camera reference frame-->
+
+<!--SLAM and camera configurations-->
+
+<arg name="launch_prefix"           default="bash -c 'sleep 2.0; $0 $@'"/>
+<arg name="launch_prefix_vis"       default="bash -c 'sleep 3.0; $0 $@'"/>
+<arg name="rviz_cfg"                default="$(find acri_localisation)/rviz/multi_camera_localisation.rviz"/> 
+<arg name="rtabmap_args"            default="-d $(find acri_localisation)/cfg/multi_camera_rtabmap.ini "/>
+<arg name="odom_args"               default="--publish_tf true"/>
+<arg name="rviz"                    default="true"/>            <!--use rviz-->
+<arg name="rtabmapviz"              default="false"/>           <!--use rtabmapviz-->
+<arg name="approx_sync"             default="true"/>            <!--approx sync depth adn RGB images from camera-->
+<arg name="queue_size"              default="10"/>              <!--buffer queue size-->
+<arg name="wait_time"               default="1.0"/>             <!--max wait time for a desired transform-->
+<arg name="cell_size"               default="0.01"/>            <!--cell size of the octomap-->
+<arg name="rgbd_depth_scale"        default="1.0"/>             <!--depth scale for cameras-->
+<arg name="rgbd_decimation"         default="1"/>               <!--decimation for cameras-->
+
+<!--Rail detection and classification configurations-->
+
+<arg name="resolution"              default="80"/>              <!--resolution of line detection image-->
+<arg name="radius"                  default="3.2"/>             <!--radius about base_link for voxels to be used in image. Image width = (2*fov*resolution)-->
+<arg name="height"                  default="0.0"/>             <!--max height above base_link for voxels to be used in image-->
+<arg name="floor"                   default="1.0"/>             <!--min floor below base_link for voxels to be used in image-->
+<arg name="min_rail_height"         default="0.03"/>            <!--min height difference used for rail detection-->
+<arg name="max_rail_height"         default="0.15"/>            <!--max height difference used for rail detection-->
+<arg name="morph_scale"             default="2"/>               <!--scale of morphological operation (bigger -> more holes filled)-->
+<arg name="min_line_length"         default="70.0"/>            <!--min line length for Hough transform (in pixels). In metres = pixels/resolution-->
+<arg name="max_line_gap"            default="40.0"/>            <!--max line gap for Hough transform (in pixels). In metres = pixels/resolution (35)--> 
+<arg name="angle"                   default="30.0"/>            <!--max rail incline (10)-->
+<arg name="accumulator"             default="50"/>              <!--min number of points required by Hough transform before considered a line-->
+
+<arg name="class_max_theta"         default="0.0575"/>          <!--max angle difference between line segments to be associated with same rail line-->
+<arg name="class_max_dist"          default="0.3"/>             <!--max distance between line segments to be associated with same rail line-->
+<arg name="pair_max_theta"          default="0.0875"/>          <!--max angle difference between two rail lines to be considered a pair-->
+<arg name="pair_max_width"          default="0.2"/>             <!--max difference away from expected rail width between two rail lines to be considered a pair-->
+<arg name="pair_min_length"         default="0.3"/>             <!--min length of a rail lines to be considered in pairing procedure-->
+<arg name="pair_max_length_diff"    default="20"/>              <!--max length difference between two rail lines to be considered a pair-->
+<arg name="pair_width_var"          default="0.3"/>             <!--width variance between a rail pair-->
+<arg name="pair_length_var"         default="4.0"/>             <!--length variance between a rail pair (be more acceting of length differences than width)-->
+<arg name="rail_width"              default="1.130"/>           <!--expected width between a rail pairing-->
+<arg name="max_rail_number"         default="200"/>             <!--maximum number of rail lines kept in memory (200)-->
+
+<!--Camera nodes-->
+
+<include file="$(find realsense2_camera)/launch/rs_rgbd.launch">
+    <arg name="camera"          value="$(arg camera_front)"/>
+    <arg name="serial_no"       value="017322073594"/>
+    <arg name="align_depth"     value="true"/>
+</include>
+
+<include file="$(find realsense2_camera)/launch/rs_rgbd.launch">
+    <arg name="camera"          value="$(arg camera_right)"/>
+    <arg name="serial_no"       value="017322073420"/>
+    <arg name="align_depth"     value="true"/>
+</include>
+  
+<include file="$(find realsense2_camera)/launch/rs_rgbd.launch">
+    <arg name="camera"          value="$(arg camera_left)"/>
+    <arg name="serial_no"       value="017322074880"/>
+    <arg name="align_depth"     value="true"/>
+</include>
+
+<include file="$(find realsense2_camera)/launch/rs_rgbd.launch">
+    <arg name="camera"          value="$(arg camera_back)"/>
+    <arg name="serial_no"       value="829212072265"/>
+    <arg name="align_depth"     value="true"/>
+</include>
+
+<!--Static transforms of camera-->
+<!--Note: corresponding to mounting on vehicle with power supply at BACK-->
+
+<node pkg="tf2_ros" type="static_transform_publisher" name="$(arg base_link)_to_$(arg camera_front)" 
+    args="1.02 0 0.05 0 0.2497 0 $(arg base_link) $(arg camera_front)_link"/>
+
+<node pkg="tf2_ros" type="static_transform_publisher" name="$(arg base_link)_to_$(arg camera_right)" 
+    args="-0.0074 -0.5655 0.0724 -1.5437 0.2392 0.0063 $(arg base_link) $(arg camera_right)_link"/>
+
+<node pkg="tf2_ros" type="static_transform_publisher" name="$(arg base_link)_to_$(arg camera_left)" 
+    args="-0.0362 0.4984 0.0661 1.5743 0.2487 0.0119 $(arg base_link) $(arg camera_left)_link"/> 
+
+<node pkg="tf2_ros" type="static_transform_publisher" name="$(arg base_link)_to_$(arg camera_back)" 
+    args="-1.0477 -0.0569 0.0870 3.1389 0.2024 0.0149 $(arg base_link) $(arg camera_back)_link"/>
+
+<!--Sync RGB/Depth images for each camera -->
+
+<group ns="$(arg camera_front)">
+    <node pkg="nodelet" type="nodelet" name="$(arg camera_front)_nodelet_manager" args="manager"/>
+    <node pkg="nodelet" type="nodelet" name="rgbd_sync" args="load rtabmap_ros/rgbd_sync $(arg camera_front)_nodelet_manager">
+        <remap from="rgb/image"        to="color/image_rect_color"/>
+        <remap from="depth/image"      to="aligned_depth_to_color/image_raw"/>
+        <remap from="rgb/camera_info"  to="color/camera_info"/>
+        <remap from="rgbd_image"       to="rgbd_image"/>
+        <param name="approx_sync"      type="bool"   value="$(arg approx_sync)"/>
+        <param name="queue_size"       type="int"    value="$(arg queue_size)"/>
+        <param name="depth_scale"      type="double" value="$(arg rgbd_depth_scale)"/>
+        <param name="decimation"       type="double" value="$(arg rgbd_decimation)"/>
+    </node>
+</group>
+
+<group ns="$(arg camera_right)">
+    <node pkg="nodelet" type="nodelet" name="$(arg camera_right)_nodelet_manager" args="manager"/>
+    <node pkg="nodelet" type="nodelet" name="rgbd_sync" args="load rtabmap_ros/rgbd_sync $(arg camera_right)_nodelet_manager">
+        <remap from="rgb/image"        to="color/image_rect_color"/>
+        <remap from="depth/image"      to="aligned_depth_to_color/image_raw"/>
+        <remap from="rgb/camera_info"  to="color/camera_info"/>
+        <remap from="rgbd_image"       to="rgbd_image"/>
+        <param name="approx_sync"      type="bool"   value="$(arg approx_sync)"/>
+        <param name="queue_size"       type="int"    value="$(arg queue_size)"/>
+        <param name="depth_scale"      type="double" value="$(arg rgbd_depth_scale)"/>
+        <param name="decimation"       type="double" value="$(arg rgbd_decimation)"/>
+    </node>
+</group>
+
+<group ns="$(arg camera_left)">
+    <node pkg="nodelet" type="nodelet" name="$(arg camera_left)_nodelet_manager" args="manager"/>
+    <node pkg="nodelet" type="nodelet" name="rgbd_sync" args="load rtabmap_ros/rgbd_sync $(arg camera_left)_nodelet_manager">
+        <remap from="rgb/image"        to="color/image_rect_color"/>
+        <remap from="depth/image"      to="aligned_depth_to_color/image_raw"/>
+        <remap from="rgb/camera_info"  to="color/camera_info"/>
+        <remap from="rgbd_image"       to="rgbd_image"/>
+        <param name="approx_sync"      type="bool"   value="$(arg approx_sync)"/>
+        <param name="queue_size"       type="int"    value="$(arg queue_size)"/>
+        <param name="depth_scale"      type="double" value="$(arg rgbd_depth_scale)"/>
+        <param name="decimation"       type="double" value="$(arg rgbd_decimation)"/>
+    </node>
+</group>
+
+<group ns="$(arg camera_back)">
+    <node pkg="nodelet" type="nodelet" name="$(arg camera_back)_nodelet_manager" args="manager"/>
+    <node pkg="nodelet" type="nodelet" name="rgbd_sync" args="load rtabmap_ros/rgbd_sync $(arg camera_back)_nodelet_manager">
+        <remap from="rgb/image"        to="color/image_rect_color"/>
+        <remap from="depth/image"      to="aligned_depth_to_color/image_raw"/>
+        <remap from="rgb/camera_info"  to="color/camera_info"/>
+        <remap from="rgbd_image"       to="rgbd_image"/>
+        <param name="approx_sync"      type="bool"   value="$(arg approx_sync)"/>
+        <param name="queue_size"       type="int"    value="$(arg queue_size)"/>
+        <param name="depth_scale"      type="double" value="$(arg rgbd_depth_scale)"/>
+        <param name="decimation"       type="double" value="$(arg rgbd_decimation)"/>
+    </node>
+</group>
+
+<!--RTABMAP SLAM solution-->
+
+<group ns="rtabmap">
+
+    <!-- Odometry -->
+
+    <node pkg="rtabmap_ros" type="rgbd_odometry" name="rgbd_odometry" output="log" args="$(arg rtabmap_args) $(arg odom_args)" launch-prefix="$(arg launch_prefix)">
+        <remap from="odom"                        to="$(arg odom)"/>
+        <remap from="rgbd_image0"                 to="/$(arg camera_front)/rgbd_image"/>
+        <remap from="rgbd_image1"                 to="/$(arg camera_right)/rgbd_image"/>
+        <remap from="rgbd_image2"                 to="/$(arg camera_left)/rgbd_image"/>
+        <remap from="rgbd_image3"                 to="/$(arg camera_back)/rgbd_image"/>  
+        <param name="rgbd_cameras"                type="int"    value="4"/>
+        <param name="subscribe_depth"             type="bool"   value="false"/>
+        <param name="subscribe_rgbd"              type="bool"   value="true"/>
+        <param name="subscribe_rgb"               type="bool"   value="false"/>
+        <param name="wait_for_transform"          type="bool"   value="true"/>
+        <param name="wait_for_transform_duration" type="double" value="$(arg wait_time)"/>
+        <param name="frame_id"                    type="string" value="$(arg base_link)"/>
+        <param name="map_frame_id"                type="string" value="$(arg map)"/>
+        <param name="odom_frame_id"               type="string" value="$(arg odom)"/>
+        <param name="queue_size"                  type="int"    value="$(arg queue_size)"/>
+        <param name="publish_tf"                  type="bool"   value="true"/>
+        <param name="approx_sync"                 type="bool"   value="$(arg approx_sync)"/>
+        <param name="Vis/EstimationType"          type="string" value="0"/>                         <!-- should be 0 for multi-cameras -->
+        <param name="Vis/CorGuessWinSize"         type="string" value="0"/>                         <!-- should be 0 for multi-cameras -->
+    </node>
+
+    <!-- Visual SLAM (robot side) -->
+    <!-- args: "delete_db_on_start" and "udebug" -->
+
+    <node name="rtabmap" pkg="rtabmap_ros" type="rtabmap" output="log" args="$(arg rtabmap_args)" launch-prefix="$(arg launch_prefix)">
+        <remap from="odom"                        to="$(arg odom)"/>
+        <remap from="rgbd_image0"                 to="/$(arg camera_front)/rgbd_image"/>
+        <remap from="rgbd_image1"                 to="/$(arg camera_right)/rgbd_image"/>
+        <remap from="rgbd_image2"                 to="/$(arg camera_left)/rgbd_image"/>
+        <remap from="rgbd_image3"                 to="/$(arg camera_back)/rgbd_image"/>  
+        <param name="rgbd_cameras"                type="int"    value="4"/>   
+        <param name="subscribe_depth"             type="bool"   value="false"/>
+        <param name="subscribe_rgbd"              type="bool"   value="true"/>
+        <param name="subscribe_rgb"               type="bool"   value="false"/>
+        <param name="wait_for_transform"          type="bool"   value="true"/>
+        <param name="wait_for_transform_duration" type="double" value="$(arg wait_time)"/>
+        <param name="frame_id"                    type="string" value="$(arg base_link)"/>
+        <param name="map_frame_id"                type="string" value="$(arg map)"/>
+        <param name="odom_frame_id"               type="string" value="$(arg odom)"/>
+        <param name="queue_size"                  type="int"    value="$(arg queue_size)"/>
+        <param name="publish_tf"                  type="bool"   value="true"/>
+        <param name="approx_sync"                 type="bool"   value="$(arg approx_sync)"/>
+        <param name="gen_scan"                    type="bool"   value="true"/>
+        <param name="map_always_update"           type="bool"   value="false"/>        <!-- don't refresh grid map until moving-->
+        <param name="map_empty_ray_tracing"       type="bool"   value="true"/>         <!-- don't fill empty space between the generated scans--> 
+        <param name="Grid/RangeMin"               type="string" value="0.1"/>
+        <param name="Grid/RangeMax"               type="string" value="3.5"/>
+        <param name="Grid/GroundIsObstacle"       type="string" value="true"/>
+        <param name="Grid/CellSize"               type="string" value="$(arg cell_size)"/>       
+        <param name="Vis/EstimationType"          type="string" value="0"/>             <!-- should be 0 for multi-cameras -->
+        <param name="Vis/CorGuessWinSize"         type="string" value="0"/>             <!-- should be 0 for multi-cameras -->
+        <param name="Mem/IncrementalMemory"       type="string" value="true"/>
+        <param name="Mem/InitWMWithAllNodes"      type="string" value="false"/>
+    </node>
+
+    <!-- Visualisation RTAB-Map -->
+
+    <node if="$(arg rtabmapviz)" pkg="rtabmap_ros" type="rtabmapviz" name="rtabmapviz" args="-d $(find rtabmap_ros)/launch/config/rgbd_gui.ini" output="screen">
+        <remap from="rgbd_image0"         to="/$(arg camera_front)/rgbd_image"/>
+        <remap from="rgbd_image1"         to="/$(arg camera_right)/rgbd_image"/>
+        <remap from="rgbd_image2"         to="/$(arg camera_left)/rgbd_image"/>
+        <remap from="rgbd_image3"         to="/$(arg camera_back)/rgbd_image"/>
+        <param name="rgbd_cameras"        type="int"    value="4"/>
+        <param name="subscribe_depth"     type="bool"   value="false"/>
+        <param name="subscribe_rgbd"      type="bool"   value="true"/>
+        <param name="subscribe_odom_info" type="bool"   value="true"/>
+        <param name="frame_id"            type="string" value="$(arg base_link)"/>       
+    </node>
+</group>
+
+<!--Rail detection and classification-->
+<group ns="rail">
+
+    <!--Line segment detection-->
+
+    <node pkg="acri_localisation" type="line_detection" name="line_detection" respawn="true" output="screen" launch-prefix="$(arg launch_prefix)">
+        <param name="resolution"               type="double" value="$(arg resolution)"/>
+        <param name="radius"                   type="double" value="$(arg radius)"/>   
+        <param name="height"                   type="double" value="$(arg height)"/>
+        <param name="floor"                    type="double" value="$(arg floor)"/>
+        <param name="min_rail_height"          type="double" value="$(arg min_rail_height)"/>
+        <param name="max_rail_height"          type="double" value="$(arg max_rail_height)"/>
+        <param name="morph_scale"              type="int"    value="$(arg morph_scale)"/> 
+        <param name="min_line_length"          type="double" value="$(arg min_line_length)"/> 
+        <param name="max_line_gap"             type="double" value="$(arg max_line_gap)"/> 
+        <param name="angle"                    type="double" value="$(arg angle)"/>
+        <param name="frame_id"                 type="string" value="$(arg map)"/>
+        <param name="child_frame_id"           type="string" value="$(arg base_link)"/>
+        <remap from="input"                    to="/rtabmap/octomap_occupied_space"/>
+        <remap from="out_lines"                to="line_segments"/>
+    </node>
+
+    <!--Rail classification-->
+
+    <node pkg="acri_localisation" type="rail_class" name="rail_class" respawn="true" output="screen" launch-prefix="$(arg launch_prefix)">
+        <param name="class_max_dist"           type="double" value="$(arg class_max_dist)"/>
+        <param name="class_max_theta"          type="double" value="$(arg class_max_theta)"/>   
+        <param name="pair_min_length"          type="double" value="$(arg pair_min_length)"/>
+        <param name="pair_max_theta"           type="double" value="$(arg pair_max_theta)"/> 
+        <param name="pair_width_var"           type="double" value="$(arg pair_width_var)"/>  
+        <param name="pair_length_var"          type="double" value="$(arg pair_length_var)"/>
+        <param name="pair_max_width"           type="double" value="$(arg pair_max_width)"/> 
+        <param name="pair_max_length_diff"     type="double" value="$(arg pair_max_length_diff)"/>            
+        <param name="rail_width"               type="double" value="$(arg rail_width)"/> 
+        <param name="range"                    type="double" value="$(arg radius)"/> 
+        <param name="max_rail_number"          type="double" value="$(arg max_rail_number)"/>
+        <param name="frame_id"                 type="string" value="$(arg map)"/>
+        <param name="child_frame_id"           type="string" value="$(arg base_link)"/>
+        <remap from="input"                    to="line_segments"/>
+        <remap from="out_lines"                to="rail_lines"/>  
+        <remap from="out_pairs"                to="rail_pairs"/> 
+        <remap from="out_closest"              to="rail_closest"/>  
+    </node>
+
+    <!--Rail visualisation-->
+
+    <node pkg="acri_localisation" type="rail_vis" name="rail_vis" respawn="true" output="screen" launch-prefix="$(arg launch_prefix)">
+        <param name="display_mid_line"         type="bool" value="true"/>
+        <remap from="in_lines"                 to="rail_lines"/>
+        <remap from="in_pairs"                 to="rail_pairs"/>
+        <remap from="in_closest"               to="rail_closest"/>
+        <remap from="out_lines"                to="vis_lines"/>
+        <remap from="out_pairs"                to="vis_pairs"/>
+        <remap from="out_closest"              to="vis_closest"/>
+    </node>
+</group>
+
+<!--STM32 communication-->
+
+<group ns="stm32">
+
+    <!--STM32 initialisation-->
+
+    <node pkg="rosserial_python" type="serial_node.py" name="serial_node" output="screen">
+        <param name="port"              value="/dev/ttyACM0"/>
+        <param name="baud"              value="57600"/> 
+    </node>
+
+    <!--STM32 and NUC Communication-->
+
+    <node pkg="acri_localisation" type="stm32_control" name="stm32_control" respawn="true" output="screen" launch-prefix="$(arg launch_prefix)">
+        <param name="rate"              type="double" value="5.0"/>
+        <remap from="in_line"           to="/rail/rail_closest"/>
+        <remap from="in_odom"           to="/rtabmap/odom"/>
+        <remap from="in_control"        to="controlToNUC"/>
+        <remap from="out_control"       to="controlFromNUC"/>
+    </node>
+
+    <!--Vehicle state visualisation-->
+
+    <node pkg="acri_localisation" type="stm32_vis" name="stm32_vis" output="screen" launch-prefix="$(arg launch_prefix_vis)">
+        <param name="length"            type="double" value="2.0"/>
+        <param name="width"             type="double" value="1.35"/>
+        <param name="height"            type="double" value="0.5"/>
+        <param name="frame_id"          type="string" value="$(arg map)"/>
+        <param name="child_frame_id"    type="string" value="$(arg base_link)"/>
+        <remap from="input"             to="controlFromNUC"/>
+        <remap from="out_state"         to="vehicle_state"/>
+        <remap from="out_legend"        to="vehicle_mode"/>
+    </node>
+</group>
+
+<!--Visualisation in RVIZ-->
+
+<node if="$(arg rviz)" pkg="rviz" type="rviz" name="rviz" args="-d $(arg rviz_cfg)" launch-prefix="$(arg launch_prefix_vis)"/>
+</launch>

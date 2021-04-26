@@ -1,0 +1,5 @@
+std_msgs/Header header
+acri_localisation/railLine line1
+acri_localisation/railLine line2
+acri_localisation/railLine midline
+std_msgs/Bool inrange
