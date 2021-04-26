@@ -1,0 +1,2 @@
+set(acri_localisation_MESSAGE_FILES "/home/acri/catkin_ws/src/acri_localisation/msg/railLine.msg;/home/acri/catkin_ws/src/acri_localisation/msg/railLineVector.msg;/home/acri/catkin_ws/src/acri_localisation/msg/railPair.msg;/home/acri/catkin_ws/src/acri_localisation/msg/railPairVector.msg;/home/acri/catkin_ws/src/acri_localisation/msg/railClosestPair.msg;/home/acri/catkin_ws/src/acri_localisation/msg/controlToNUC.msg;/home/acri/catkin_ws/src/acri_localisation/msg/controlFromNUC.msg")
+set(acri_localisation_SERVICE_FILES "")

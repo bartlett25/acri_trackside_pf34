@@ -1,0 +1,21 @@
+(cl:defpackage acri_localisation-msg
+  (:use )
+  (:export
+   "<CONTROLFROMNUC>"
+   "CONTROLFROMNUC"
+   "<CONTROLTONUC>"
+   "CONTROLTONUC"
+   "<POSEEULER>"
+   "POSEEULER"
+   "<RAILCLOSESTPAIR>"
+   "RAILCLOSESTPAIR"
+   "<RAILLINE>"
+   "RAILLINE"
+   "<RAILLINEVECTOR>"
+   "RAILLINEVECTOR"
+   "<RAILPAIR>"
+   "RAILPAIR"
+   "<RAILPAIRVECTOR>"
+   "RAILPAIRVECTOR"
+  ))
+
