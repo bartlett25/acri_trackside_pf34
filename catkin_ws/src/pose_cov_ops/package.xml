@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>pose_cov_ops</name>
+  <version>0.2.1</version>
+  <description>C++ library for SE(2/3) pose and 2D/3D point
+    composition operations with uncertainty</description>
+
+  <!-- One maintainer tag required, multiple allowed, one person per tag -->
+  <maintainer email="jlblanco@ual.es">Jose-Luis Blanco-Claraco</maintainer>
+  <maintainer email="markus.bader@tuwien.ac.at">Markus Bader</maintainer>
+
+  <license>BSD</license>
+
+  <url type="website">http://wiki.ros.org/pose_cov_ops</url>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>mrpt1</build_depend> <!-- Depend on mrpt1 ROS pkgs -->
+  <build_depend>roscpp</build_depend>
+  <build_depend>geometry_msgs</build_depend>
+  <build_depend>mrpt_bridge</build_depend>
+
+  <exec_depend>mrpt1</exec_depend> <!-- Depend on mrpt1 ROS pkgs -->
+  <exec_depend>roscpp</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>mrpt_bridge</exec_depend>
+  
+</package>
